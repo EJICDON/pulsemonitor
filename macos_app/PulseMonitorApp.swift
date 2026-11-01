@@ -122,6 +122,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         openBrowserItem.target = self
         menu.addItem(openBrowserItem)
 
+        let openGitHubItem = NSMenuItem(
+            title: "⭐ Open Source on GitHub (EJICDON/pulsemonitor)",
+            action: #selector(openGitHubRepo),
+            keyEquivalent: "g"
+        )
+        openGitHubItem.target = self
+        menu.addItem(openGitHubItem)
+
         menu.addItem(NSMenuItem.separator())
 
         toggleServerMenuItem = NSMenuItem(
@@ -289,6 +297,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             startRunShProcess()
         }
         NSWorkspace.shared.open(dashboardURL)
+    }
+
+    @objc func openGitHubRepo() {
+        if let url = URL(string: "https://github.com/EJICDON/pulsemonitor") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc func restartServer() {

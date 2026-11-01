@@ -13,11 +13,12 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+DIST_DIR = os.path.join(BASE_DIR, "dist")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 
 
@@ -33,6 +34,8 @@ APP_VERSION = get_app_version()
 app = FastAPI(title="PulseMonitor · Home Lab & System Dashboard", version=APP_VERSION)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if os.path.isdir(DIST_DIR):
+    app.mount("/dist", StaticFiles(directory=DIST_DIR), name="dist")
 
 # Store up to 120 data points of historical metrics (~2 minutes at 1s interval)
 HISTORY_MAX_LEN = 120
@@ -45,15 +48,19 @@ def get_cpu_brand() -> str:
     if sys_name == "Linux":
         try:
             with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    if line.lower().startswith("model name"):
-                        parts = line.split(":", 1)
-                        if len(parts) > 1 and parts[1].strip():
-                            return parts[1].strip()
-                    elif line.lower().startswith("hardware") or line.lower().startswith("model"):
-                        parts = line.split(":", 1)
-                        if len(parts) > 1 and parts[1].strip():
-                            return parts[1].strip()
+                lines = f.readlines()
+            for line in lines:
+                key = line.split(":", 1)[0].strip().lower()
+                if key == "model name":
+                    val = line.split(":", 1)[1].strip()
+                    if val:
+                        return val
+            for line in lines:
+                key = line.split(":", 1)[0].strip().lower()
+                if key in ("hardware", "processor", "cpu model"):
+                    val = line.split(":", 1)[1].strip()
+                    if val and not val.isdigit():
+                        return val
         except Exception:
             pass
     elif sys_name == "Darwin":
@@ -751,6 +758,58 @@ async def startup_collector() -> None:
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/deploy.sh", response_class=PlainTextResponse)
+async def get_deploy_script() -> str:
+    """One-line remote deployment script served over LAN / Tailscale."""
+    pubkey = ""
+    pubkey_path = os.path.expanduser("~/.ssh/home_ai_lab_ed25519.pub")
+    if os.path.exists(pubkey_path):
+        try:
+            with open(pubkey_path, "r", encoding="utf-8") as f:
+                pubkey = f.read().strip()
+        except Exception:
+            pass
+
+    return f"""#!/usr/bin/env bash
+set -e
+echo "========================================================"
+echo " 🚀 Deploying PulseMonitor v{APP_VERSION} to $(hostname)..."
+echo "========================================================"
+
+# 1. Authorize SSH key for passwordless management
+if [ -n "{pubkey}" ]; then
+  chmod go-w "$HOME" 2>/dev/null || true
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  grep -qF "{pubkey}" "$HOME/.ssh/authorized_keys" 2>/dev/null || echo "{pubkey}" >> "$HOME/.ssh/authorized_keys"
+  chmod 600 "$HOME/.ssh/authorized_keys"
+fi
+
+# 2. Download portable tarball from Mac host over Tailscale / LAN
+WORK_DIR="$HOME/pulsemonitor-app"
+mkdir -p "$WORK_DIR"
+cd "$WORK_DIR"
+curl -fsSL http://100.120.172.121:8788/dist/pulsemonitor-ubuntu-{APP_VERSION}.tar.gz -o pulsemonitor.tar.gz
+tar -xzf pulsemonitor.tar.gz --strip-components=1
+
+# 3. Install system-wide if passwordless sudo is available, or start immediately in user space
+if sudo -n true 2>/dev/null; then
+  sudo bash linux/install_ubuntu.sh
+else
+  echo "📦 Setting up PulseMonitor in $WORK_DIR (or run: sudo bash $WORK_DIR/linux/install_ubuntu.sh)..."
+  if ! python3 -m venv .venv 2>/dev/null; then
+    sudo apt-get update && sudo apt-get install -y python3-venv python3-pip
+    python3 -m venv .venv
+  fi
+  .venv/bin/pip install --upgrade pip -q
+  .venv/bin/pip install -r requirements.txt -q
+  pkill -f "uvicorn app:app" 2>/dev/null || true
+  nohup .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8788 > "$WORK_DIR/pulsemonitor.log" 2>&1 &
+  sleep 1
+  echo "✅ PulseMonitor v{APP_VERSION} is LIVE on http://$(hostname -I | awk '{{print $1}}'):8788 (and http://100.109.47.124:8788)"
+fi
+"""
 
 
 @app.get("/api/history")
