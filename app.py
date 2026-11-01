@@ -757,7 +757,10 @@ async def startup_collector() -> None:
 
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(
+        os.path.join(STATIC_DIR, "index.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 
 @app.get("/deploy.sh", response_class=PlainTextResponse)

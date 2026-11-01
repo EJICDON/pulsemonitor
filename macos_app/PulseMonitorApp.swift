@@ -275,17 +275,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             startRunShProcess()
         }
         guard let win = dashboardWindow, let wv = webView else { return }
-        if wv.url == nil {
-            wv.load(URLRequest(url: dashboardURL))
-        } else {
-            wv.reload()
-        }
+        let req = URLRequest(
+            url: dashboardURL,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 10.0
+        )
+        wv.load(req)
         NSApp.activate(ignoringOtherApps: true)
         win.makeKeyAndOrderFront(nil)
     }
 
     @objc func reloadWebView() {
-        webView?.reload()
+        webView?.reloadFromOrigin()
     }
 
     @objc func closeCurrentWindow() {
