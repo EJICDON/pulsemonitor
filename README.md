@@ -102,3 +102,4 @@ git push origin main --follow-tags
 ```
 
 When a `v*.*.*` tag is pushed to GitHub, the GitHub Actions workflow (`.github/workflows/release.yml`) automatically builds and attaches `pulsemonitor_<version>_all.deb` and `pulsemonitor-ubuntu-<version>.tar.gz` to a new **GitHub Release**.
+# pulsemonitor
