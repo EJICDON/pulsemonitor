@@ -1,10 +1,24 @@
-# 🚀 PulseMonitor — Initial Release Notes (v1.0.0 / v1.2.0)
+# 🚀 PulseMonitor v1.2.1 — Release Notes
 
 **PulseMonitor** is a lightweight, zero-lag, real-time system and Home Lab monitoring dashboard built with **FastAPI**, **psutil**, **WebSockets**, and **Chart.js**. Designed for **Ubuntu / Debian Home Lab servers**, **Docker**, and **macOS** (with a native Menu Bar & Dock companion app), it provides instant visibility into host hardware telemetry and Virtual Machine (VM) resource allocation vs. live utilization.
 
+🔗 **Open-Source Repository & Downloads**: [https://github.com/EJICDON/pulsemonitor](https://github.com/EJICDON/pulsemonitor)
+
 ---
 
-## ✨ Highlights & Key Features
+## 🆕 What's New in v1.2.1
+
+- **Open-Source Copyright Footer & GitHub Quick Links**:
+  - Added a dedicated Copyright (`© 2026 EJICDON · Open-Source MIT License`) and open-source download bar at the bottom of the Web Dashboard (`https://github.com/EJICDON/pulsemonitor`).
+  - Added a one-click **GitHub** button in the top navigation bar and a `⭐ Open Source on GitHub (EJICDON/pulsemonitor)` (`⌘G`) shortcut inside the native macOS Menu Bar app.
+- **Improved Linux Multi-Socket Xeon / EPYC CPU Model Detection**:
+  - Fixed `/proc/cpuinfo` parsing priority on x86_64 Linux servers so `model name` (e.g., `Intel(R) Xeon(R) CPU`) is always matched before numeric `model` IDs.
+- **Streamlined LAN / Tailscale Remote Deployment (`/deploy.sh`)**:
+  - Enhanced `/deploy.sh` to automatically fix home directory permissions (`chmod go-w $HOME`) for strict SSH daemon configurations and seamlessly hot-reload `v1.2.1` on remote Ubuntu servers.
+
+---
+
+## ✨ Core Features Overview (v1.0.0 – v1.2.1)
 
 ### 1. Real-Time Hardware Telemetry & Historical Trends
 - **Instant Chart Hydration**: Backed by an in-memory 120-second ring buffer (`/api/history`) and live `/ws/metrics` WebSocket streaming (`0.5s`, `1.0s`, `2.0s`, `5.0s` sampling intervals with Pause/Resume controls).
@@ -27,9 +41,9 @@
   - **Built-in Demo Preview Mode**: One-click **"Preview Sample VMs"** button to preview multi-VM Home Lab telemetry on hosts without active VMs.
 
 ### 3. Multi-Platform Packaging & Deployment
-- **Ubuntu / Debian Native `.deb` Installer (`pulsemonitor_1.2.0_all.deb`)**:
+- **Ubuntu / Debian Native `.deb` Installer (`pulsemonitor_1.2.1_all.deb`)**:
   - Installs to `/opt/pulsemonitor`, configures an isolated Python virtual environment, registers the `pulsemonitor.service` `systemd` unit for automatic startup on boot, and provides the `/usr/local/bin/pulsemonitor` CLI utility (`status`, `start`, `stop`, `restart`, `logs`, `url`, `version`).
-- **Ubuntu / Linux One-Step Script Tarball (`pulsemonitor-ubuntu-1.2.0.tar.gz`)**:
+- **Ubuntu / Linux One-Step Script Tarball (`pulsemonitor-ubuntu-1.2.1.tar.gz`)**:
   - Includes `linux/install_ubuntu.sh` and `linux/uninstall_ubuntu.sh` for any Linux distribution.
 - **Docker & Docker Compose**:
   - Pre-configured `Dockerfile` and `docker-compose.yml` with `network_mode: host` and `pid: host` for accurate host-level monitoring.
@@ -43,13 +57,13 @@
 ### Option A: Ubuntu / Debian `.deb` Package (Recommended for Home Lab)
 ```bash
 sudo apt update
-sudo apt install -y ./pulsemonitor_1.2.0_all.deb
+sudo apt install -y ./pulsemonitor_1.2.1_all.deb
 pulsemonitor status
 ```
 
 ### Option B: Portable Linux Tarball
 ```bash
-tar -xzf pulsemonitor-ubuntu-1.2.0.tar.gz
+tar -xzf pulsemonitor-ubuntu-1.2.1.tar.gz
 cd pulsemonitor
 sudo bash linux/install_ubuntu.sh
 ```
@@ -63,7 +77,10 @@ Once started, open **`http://<server-ip>:8788`** in your browser.
 
 ---
 
-## 📋 Release Assets
-- `pulsemonitor_1.2.0_all.deb` — Native Debian / Ubuntu installer package (`systemd` + CLI included)
-- `pulsemonitor-ubuntu-1.2.0.tar.gz` — Portable Linux installer bundle & Docker configuration
+## 📋 Release Assets (`v1.2.1`)
+- `pulsemonitor_1.2.1_all.deb` — Native Debian / Ubuntu installer package (`systemd` + CLI included)
+- `pulsemonitor-ubuntu-1.2.1.tar.gz` — Portable Linux installer bundle & Docker configuration
 - `Source code (zip / tar.gz)` — Full source including macOS native Menu Bar app (`macos_app/`)
+
+---
+*Copyright © 2026 EJICDON · Open-Source under the MIT License — [https://github.com/EJICDON/pulsemonitor](https://github.com/EJICDON/pulsemonitor)*

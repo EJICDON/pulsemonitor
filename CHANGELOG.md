@@ -3,6 +3,17 @@
 All notable changes to **PulseMonitor** are documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-11-02
+
+### Added
+- **Copyright Footer & Open-Source GitHub Links**:
+  - Added Copyright (`© 2026 EJICDON`) and open-source download link (`https://github.com/EJICDON/pulsemonitor`) to the Web Dashboard footer, top navigation bar, and native macOS Menu Bar app (`⌘G`).
+- **Remote Deployment Enhancements**:
+  - Added `/deploy.sh` and `/dist` endpoints for one-line LAN/Tailscale deployment and automatic `$HOME` permission normalization for SSH key auth.
+
+### Fixed
+- Fixed `/proc/cpuinfo` parsing priority on multi-core Linux Xeon/EPYC servers so `model name` is always matched before numeric `model` IDs.
+
 ## [1.2.0] - 2026-11-02
 
 ### Added
