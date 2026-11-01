@@ -1,0 +1,13 @@
+services:
+  pulsemonitor:
+    build: .
+    container_name: pulsemonitor
+    restart: unless-stopped
+    # 使用 host 网络和 host PID 命名空间以准确监控宿主机网卡流量、端口与进程
+    network_mode: host
+    pid: host
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8788
+    volumes:
+      - /:/host/root:ro

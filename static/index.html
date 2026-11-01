@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseMonitor · Real-Time System & Home Lab Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- Chart.js for smooth real-time time-series visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="brand-group">
+        <div class="logo-badge">
+          <span class="pulse-dot" id="ws-status-dot"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="title-row">
+            <h1>PulseMonitor</h1>
+            <span class="badge-subtle" id="app-version-badge">v1.1.0</span>
+            <span class="status-pill" id="ws-status-text">Connecting...</span>
+          </div>
+          <p class="subtitle" id="sys-summary-text">Loading host hardware specifications...</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="sys-meta-pills">
+          <div class="meta-chip" title="System Uptime">
+            <span class="meta-label">Uptime</span>
+            <span class="meta-val" id="uptime-val">--</span>
+          </div>
+          <div class="meta-chip" title="System Load Average (1m / 5m / 15m)">
+            <span class="meta-label">Load Avg</span>
+            <span class="meta-val" id="load-val">-- / -- / --</span>
+          </div>
+          <div class="meta-chip" id="battery-chip" title="Thermal & Power Status">
+            <span class="meta-label">Power / Thermal</span>
+            <span class="meta-val" id="battery-val">--</span>
+          </div>
+        </div>
+
+        <div class="control-actions">
+          <label class="select-wrap" title="Sampling Refresh Interval">
+            <span>Interval</span>
+            <select id="interval-select">
+              <option value="0.5">0.5s</option>
+              <option value="1" selected>1.0s</option>
+              <option value="2">2.0s</option>
+              <option value="5">5.0s</option>
+            </select>
+          </label>
+          <button class="btn-control" id="pause-btn" title="Pause / Resume Real-Time Charts">
+            <span id="pause-btn-text">Pause</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Primary KPI Summary Row (4 Cards) -->
+    <section class="kpi-grid">
+      <!-- CPU KPI -->
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <div>
+            <span class="kpi-title">CPU Utilization</span>
+            <div class="kpi-value-wrap">
+              <span class="kpi-value" id="kpi-cpu">0.0%</span>
+              <span class="kpi-badge" id="kpi-cpu-cores">-- Cores</span>
+            </div>
+          </div>
+          <div class="kpi-icon cpu-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <rect x="9" y="9" width="6" height="6"></rect>
+              <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill fill-cpu" id="bar-cpu" style="width: 0%"></div>
+        </div>
+        <div class="kpi-foot">
+          <span id="cpu-user-sys">User 0% · Sys 0%</span>
+          <span id="cpu-idle">Idle 100%</span>
+        </div>
+      </div>
+
+      <!-- Memory KPI -->
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <div>
+            <span class="kpi-title">Physical Memory (RAM)</span>
+            <div class="kpi-value-wrap">
+              <span class="kpi-value" id="kpi-mem">0.0%</span>
+              <span class="kpi-badge" id="kpi-mem-detail">0 / 0 GB</span>
+            </div>
+          </div>
+          <div class="kpi-icon mem-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 19v-3M10 19v-3M14 19v-3M18 19v-3M8 11V9M16 11V9M12 11V9M2 15h20M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill fill-mem" id="bar-mem" style="width: 0%"></div>
+        </div>
+        <div class="kpi-foot">
+          <span id="mem-avail">Available: -- GB</span>
+          <span id="swap-info">Swap: 0.0%</span>
+        </div>
+      </div>
+
+      <!-- Disk KPI -->
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <div>
+            <span class="kpi-title">Disk I/O Throughput</span>
+            <div class="kpi-value-wrap">
+              <span class="kpi-value" id="kpi-disk-io">0.0 KB/s</span>
+              <span class="kpi-badge" id="kpi-disk-root">Root --%</span>
+            </div>
+          </div>
+          <div class="kpi-icon disk-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill fill-disk" id="bar-disk" style="width: 0%"></div>
+        </div>
+        <div class="kpi-foot">
+          <span id="disk-rw-rate">Read 0 B/s · Write 0 B/s</span>
+          <span id="disk-iops">0 IOPS</span>
+        </div>
+      </div>
+
+      <!-- Network KPI -->
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <div>
+            <span class="kpi-title">Network Throughput</span>
+            <div class="kpi-value-wrap">
+              <span class="kpi-value" id="kpi-net-down">↓ 0 B/s</span>
+              <span class="kpi-badge net-up-badge" id="kpi-net-up">↑ 0 B/s</span>
+            </div>
+          </div>
+          <div class="kpi-icon net-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+              <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+              <line x1="12" y1="20" x2="12.01" y2="20"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="net-mini-totals">
+          <span id="net-total-down">Total RX: --</span>
+          <span id="net-total-up">Total TX: --</span>
+        </div>
+        <div class="kpi-foot" id="net-ifaces-foot">
+          <span>NIC: --</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Historical Time-Series Charts Row -->
+    <section class="charts-grid">
+      <!-- CPU & Memory History Chart -->
+      <div class="panel-card chart-panel">
+        <div class="panel-header">
+          <div>
+            <h2>CPU & Memory History</h2>
+            <p class="panel-sub">Rolling 60-sample utilization trend (%)</p>
+          </div>
+          <div class="legend-pills">
+            <span class="legend-item"><i class="dot dot-cpu"></i>CPU Usage</span>
+            <span class="legend-item"><i class="dot dot-mem"></i>Memory Usage</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="cpuMemChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Network Bandwidth History Chart -->
+      <div class="panel-card chart-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Network Bandwidth History</h2>
+            <p class="panel-sub">Real-time Download (RX) & Upload (TX) throughput (KB/s)</p>
+          </div>
+          <div class="legend-pills">
+            <span class="legend-item"><i class="dot dot-down"></i>Download (↓)</span>
+            <span class="legend-item"><i class="dot dot-up"></i>Upload (↑)</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="netChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Second Row: Per-Core CPU + Disk I/O History + Storage Volumes -->
+    <section class="details-grid">
+      <!-- Per-Core CPU Utilization -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2>Per-Core CPU Load</h2>
+            <p class="panel-sub" id="cpu-brand-sub">Real-time load distribution across logical cores</p>
+          </div>
+          <span class="badge-subtle" id="proc-count-badge">-- Processes</span>
+        </div>
+        <div class="cores-grid" id="cores-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Disk I/O Trend & Storage Volumes -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2>Disk I/O History & Storage Volumes</h2>
+            <p class="panel-sub">Real-time disk read/write rate (KB/s) & mounted filesystems</p>
+          </div>
+          <div class="legend-pills">
+            <span class="legend-item"><i class="dot dot-read"></i>Read</span>
+            <span class="legend-item"><i class="dot dot-write"></i>Write</span>
+          </div>
+        </div>
+        <div class="chart-container chart-small">
+          <canvas id="diskChart"></canvas>
+        </div>
+        <div class="partitions-list" id="partitions-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Third Row: Memory Breakdown + Top Processes -->
+    <section class="bottom-grid">
+      <!-- Memory Composition & Network Interfaces -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2>Memory Allocation & Network Interfaces</h2>
+            <p class="panel-sub">Physical RAM composition (Wired/Buffers, Active, Cached, Available) & NIC IPs</p>
+          </div>
+        </div>
+        <div class="mem-breakdown-box">
+          <div class="stacked-bar" id="mem-stacked-bar">
+            <div class="seg seg-wired" id="seg-wired" title="Wired / Kernel Buffers"></div>
+            <div class="seg seg-active" id="seg-active" title="Active Memory"></div>
+            <div class="seg seg-inactive" id="seg-inactive" title="Cached / Inactive Memory"></div>
+          </div>
+          <div class="mem-stats-grid">
+            <div class="mem-stat-item">
+              <span class="stat-dot seg-wired"></span>
+              <span class="stat-name">Wired / Buffers</span>
+              <strong id="val-wired">--</strong>
+            </div>
+            <div class="mem-stat-item">
+              <span class="stat-dot seg-active"></span>
+              <span class="stat-name">Active</span>
+              <strong id="val-active">--</strong>
+            </div>
+            <div class="mem-stat-item">
+              <span class="stat-dot seg-inactive"></span>
+              <span class="stat-name">Cached / Inactive</span>
+              <strong id="val-inactive">--</strong>
+            </div>
+            <div class="mem-stat-item">
+              <span class="stat-dot seg-free"></span>
+              <span class="stat-name">Available</span>
+              <strong id="val-avail">--</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="iface-section">
+          <h3 class="sub-heading">Active Network Interfaces (IPv4)</h3>
+          <div class="iface-list" id="iface-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Active Processes Table -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2>Top 8 Active Processes</h2>
+            <p class="panel-sub">Sorted by real-time CPU utilization</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="proc-table">
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>Process Name</th>
+                <th>User</th>
+                <th class="num-col">CPU %</th>
+                <th class="num-col">MEM %</th>
+              </tr>
+            </thead>
+            <tbody id="proc-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
