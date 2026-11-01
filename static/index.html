@@ -22,7 +22,7 @@
         <div>
           <div class="title-row">
             <h1>PulseMonitor</h1>
-            <span class="badge-subtle" id="app-version-badge">v1.1.0</span>
+            <span class="badge-subtle" id="app-version-badge">v1.2.0</span>
             <span class="status-pill" id="ws-status-text">Connecting...</span>
           </div>
           <p class="subtitle" id="sys-summary-text">Loading host hardware specifications...</p>
@@ -205,6 +205,117 @@
         </div>
         <div class="chart-container">
           <canvas id="netChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW: Virtual Machines (VM) Resource Allocation & Real-Time Usage Section -->
+    <section class="vm-section">
+      <div class="panel-card">
+        <div class="panel-header vm-panel-header">
+          <div>
+            <div class="vm-title-row">
+              <h2>Virtual Machines (VM) Resource Allocation & Live Usage</h2>
+              <span class="badge-subtle" id="vm-count-badge">0 Running / 0 Total</span>
+              <span class="vm-mode-pill" id="vm-mode-pill" style="display: none;">SIMULATION PREVIEW</span>
+            </div>
+            <p class="panel-sub">
+              Tracks provisioned vCPUs & RAM vs. actual real-time host utilization (KVM/QEMU, Proxmox VE, libvirt, Multipass, VirtualBox, Apple Virtualization)
+            </p>
+          </div>
+          <div class="vm-header-actions">
+            <button class="btn-control" id="demo-vm-btn" title="Preview how Home Lab VMs appear when no local VMs are running">
+              Preview Sample VMs
+            </button>
+          </div>
+        </div>
+
+        <!-- Host-to-VM Resource Allocation Overview (3 Summary Boxes) -->
+        <div class="vm-summary-grid">
+          <!-- vCPU Allocation vs Live Usage -->
+          <div class="vm-alloc-card">
+            <div class="vm-alloc-top">
+              <span class="vm-alloc-label">vCPU Provisioning vs. Host Cores</span>
+              <span class="kpi-badge" id="vm-vcpu-ratio-badge">0% Allocated</span>
+            </div>
+            <div class="vm-alloc-main">
+              <strong id="vm-vcpu-alloc-val">0 vCPUs</strong>
+              <span class="vm-alloc-sub" id="vm-vcpu-host-sub">of -- Host Logical Cores</span>
+            </div>
+            <div class="dual-progress-track" title="Blue: Current VM CPU Load | Dashed Fill: Provisioned vCPU Capacity">
+              <div class="dual-progress-alloc fill-cpu-alloc" id="bar-vm-vcpu-alloc" style="width: 0%"></div>
+              <div class="dual-progress-used fill-cpu" id="bar-vm-vcpu-used" style="width: 0%"></div>
+            </div>
+            <div class="vm-alloc-foot">
+              <span id="vm-vcpu-active-text">Active VMs: 0 vCPUs</span>
+              <span id="vm-cpu-live-text">Current VM Host Load: 0.0%</span>
+            </div>
+          </div>
+
+          <!-- Memory Allocation vs Live RSS Usage -->
+          <div class="vm-alloc-card">
+            <div class="vm-alloc-top">
+              <span class="vm-alloc-label">VM Memory Provisioning vs. Actual Usage (RSS)</span>
+              <span class="kpi-badge" id="vm-mem-ratio-badge">0% of Host RAM</span>
+            </div>
+            <div class="vm-alloc-main">
+              <strong id="vm-mem-used-val">0 B Used</strong>
+              <span class="vm-alloc-sub" id="vm-mem-alloc-sub">/ 0 B Allocated (Host: -- GB)</span>
+            </div>
+            <div class="dual-progress-track" title="Purple Solid: Actual Used RAM (RSS) | Faded Purple: Total Allocated VM RAM">
+              <div class="dual-progress-alloc fill-mem-alloc" id="bar-vm-mem-alloc" style="width: 0%"></div>
+              <div class="dual-progress-used fill-mem" id="bar-vm-mem-used" style="width: 0%"></div>
+            </div>
+            <div class="vm-alloc-foot">
+              <span id="vm-mem-efficiency-text">Allocation Utilization: 0.0%</span>
+              <span id="vm-mem-host-share-text">Host RAM Share: 0.0%</span>
+            </div>
+          </div>
+
+          <!-- Hypervisor & Instance Status Summary -->
+          <div class="vm-alloc-card">
+            <div class="vm-alloc-top">
+              <span class="vm-alloc-label">Hypervisor Instance Summary</span>
+              <span class="kpi-badge" id="vm-engine-badge">Auto-Detect</span>
+            </div>
+            <div class="vm-status-counters">
+              <div class="vm-counter-item">
+                <span class="vm-counter-num running-text" id="vm-cnt-running">0</span>
+                <span class="vm-counter-label">Running</span>
+              </div>
+              <div class="vm-counter-item">
+                <span class="vm-counter-num stopped-text" id="vm-cnt-stopped">0</span>
+                <span class="vm-counter-label">Stopped / Off</span>
+              </div>
+              <div class="vm-counter-item">
+                <span class="vm-counter-num" id="vm-cnt-total">0</span>
+                <span class="vm-counter-label">Total VMs</span>
+              </div>
+            </div>
+            <div class="vm-alloc-foot">
+              <span id="vm-headroom-text">Host Unallocated RAM: --</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-VM Resource Allocation & Real-Time Usage Table -->
+        <div class="table-wrap">
+          <table class="proc-table vm-table">
+            <thead>
+              <tr>
+                <th>VM Name / ID</th>
+                <th>Hypervisor</th>
+                <th>State</th>
+                <th>Allocated vCPU & Current Load</th>
+                <th>Memory (Actual Used / Allocated)</th>
+                <th class="num-col">Host CPU Share</th>
+                <th class="num-col">Uptime</th>
+              </tr>
+            </thead>
+            <tbody id="vm-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

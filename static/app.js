@@ -1,7 +1,9 @@
-// PulseMonitor Frontend Controller (English Edition)
+// PulseMonitor Frontend Controller (English Edition with VM Telemetry)
 
 const MAX_POINTS = 60;
 let isPaused = false;
+let isDemoVMs = false;
+let lastSnapshot = null;
 let ws = null;
 let currentInterval = 1.0;
 
@@ -19,6 +21,7 @@ function formatRate(bps) {
 }
 
 function formatUptime(seconds) {
+  if (!seconds || seconds <= 0) return "--";
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -31,6 +34,117 @@ function coreColor(pct) {
   if (pct >= 85) return "#ef4444";
   if (pct >= 60) return "#f59e0b";
   return "#38bdf8";
+}
+
+// Generate realistic sample Home Lab VMs when Preview Demo VMs is active
+function buildDemoVMData(snap) {
+  const hostCores = (snap && snap.cpu && snap.cpu.cores_logical) || 10;
+  const hostMem = (snap && snap.memory && snap.memory.total) || 16 * 1024 * 1024 * 1024;
+  const jitter = () => (Math.random() - 0.5) * 4.5;
+
+  const GB = 1024 * 1024 * 1024;
+  const items = [
+    {
+      id: "101",
+      pid: 4120,
+      name: "ubuntu-k8s-worker-01",
+      hypervisor: "KVM / QEMU",
+      status: "running",
+      vcpus: 4,
+      cpu_vm_percent: Math.max(8, Math.min(95, +(34.2 + jitter()).toFixed(1))),
+      allocated_memory: Math.round(4 * GB),
+      used_memory: Math.round(3.15 * GB),
+      uptime_seconds: 86400 * 5 + 14200,
+    },
+    {
+      id: "102",
+      pid: 4288,
+      name: "truenas-scale-storage",
+      hypervisor: "KVM / QEMU",
+      status: "running",
+      vcpus: 4,
+      cpu_vm_percent: Math.max(5, Math.min(90, +(21.8 + jitter()).toFixed(1))),
+      allocated_memory: Math.round(6 * GB),
+      used_memory: Math.round(5.45 * GB),
+      uptime_seconds: 86400 * 12 + 3600,
+    },
+    {
+      id: "103",
+      pid: 4512,
+      name: "homeassistant-os",
+      hypervisor: "KVM / libvirt",
+      status: "running",
+      vcpus: 2,
+      cpu_vm_percent: Math.max(2, Math.min(60, +(11.4 + jitter() * 0.5).toFixed(1))),
+      allocated_memory: Math.round(2 * GB),
+      used_memory: Math.round(1.38 * GB),
+      uptime_seconds: 86400 * 12 + 3540,
+    },
+    {
+      id: "104",
+      pid: 4890,
+      name: "plex-transcode-node",
+      hypervisor: "KVM / QEMU",
+      status: "running",
+      vcpus: 2,
+      cpu_vm_percent: Math.max(5, Math.min(98, +(52.6 + jitter() * 1.4).toFixed(1))),
+      allocated_memory: Math.round(2 * GB),
+      used_memory: Math.round(1.62 * GB),
+      uptime_seconds: 86400 * 2 + 7200,
+    },
+    {
+      id: "105",
+      pid: null,
+      name: "win11-sandbox-lab",
+      hypervisor: "KVM / libvirt",
+      status: "stopped",
+      vcpus: 4,
+      cpu_vm_percent: 0.0,
+      allocated_memory: Math.round(4 * GB),
+      used_memory: 0,
+      uptime_seconds: 0,
+    },
+  ];
+
+  items.forEach((vm) => {
+    vm.cpu_host_percent =
+      vm.status === "running"
+        ? +((vm.cpu_vm_percent * vm.vcpus) / hostCores).toFixed(1)
+        : 0.0;
+    vm.memory_vm_percent =
+      vm.allocated_memory > 0
+        ? +((vm.used_memory / vm.allocated_memory) * 100).toFixed(1)
+        : 0.0;
+  });
+
+  const running = items.filter((v) => v.status === "running");
+  const allocVcpus = items.reduce((s, v) => s + v.vcpus, 0);
+  const activeVcpus = running.reduce((s, v) => s + v.vcpus, 0);
+  const allocMem = items.reduce((s, v) => s + v.allocated_memory, 0);
+  const usedMem = running.reduce((s, v) => s + v.used_memory, 0);
+  const hostCpuUsed = +running
+    .reduce((s, v) => s + v.cpu_host_percent, 0)
+    .toFixed(1);
+
+  return {
+    summary: {
+      total_count: items.length,
+      running_count: running.length,
+      stopped_count: items.length - running.length,
+      allocated_vcpus: allocVcpus,
+      active_vcpus: activeVcpus,
+      host_cores: hostCores,
+      vcpu_allocation_percent: +((allocVcpus / hostCores) * 100).toFixed(1),
+      host_cpu_used_percent: Math.min(100, hostCpuUsed),
+      allocated_memory: allocMem,
+      used_memory: usedMem,
+      host_total_memory: hostMem,
+      memory_allocation_percent: +((allocMem / hostMem) * 100).toFixed(1),
+      memory_used_of_host_percent: +((usedMem / hostMem) * 100).toFixed(1),
+      memory_used_of_allocated_percent: +((usedMem / allocMem) * 100).toFixed(1),
+    },
+    items: items,
+  };
 }
 
 // Chart.js Shared Defaults
@@ -219,8 +333,134 @@ function pushChartPoint(snap) {
   diskChart.update("none");
 }
 
+function renderVMSection(snap) {
+  const vmData = isDemoVMs ? buildDemoVMData(snap) : (snap.vms || { summary: {}, items: [] });
+  const sum = vmData.summary || {};
+  const items = vmData.items || [];
+
+  document.getElementById("vm-mode-pill").style.display = isDemoVMs ? "inline-block" : "none";
+  document.getElementById("vm-count-badge").textContent =
+    `${sum.running_count || 0} Running / ${sum.total_count || 0} Total`;
+
+  // 1. vCPU Provisioning vs Live Load Card
+  const vcpuAllocPct = sum.vcpu_allocation_percent || 0;
+  const vcpuBadge = document.getElementById("vm-vcpu-ratio-badge");
+  vcpuBadge.textContent =
+    vcpuAllocPct > 100
+      ? `${vcpuAllocPct}% Overcommit`
+      : `${vcpuAllocPct}% Allocated`;
+  vcpuBadge.style.color = vcpuAllocPct > 100 ? "#fbbf24" : "#94a3b8";
+
+  document.getElementById("vm-vcpu-alloc-val").textContent =
+    `${sum.allocated_vcpus || 0} vCPUs`;
+  document.getElementById("vm-vcpu-host-sub").textContent =
+    `provisioned across ${sum.host_cores || "--"} Host Cores`;
+
+  document.getElementById("bar-vm-vcpu-alloc").style.width =
+    `${Math.min(100, vcpuAllocPct)}%`;
+  document.getElementById("bar-vm-vcpu-used").style.width =
+    `${Math.min(100, sum.host_cpu_used_percent || 0)}%`;
+
+  document.getElementById("vm-vcpu-active-text").textContent =
+    `Active Running VMs: ${sum.active_vcpus || 0} vCPUs`;
+  document.getElementById("vm-cpu-live-text").textContent =
+    `Current Host CPU Load: ${(sum.host_cpu_used_percent || 0).toFixed(1)}%`;
+
+  // 2. VM Memory Allocation vs Live RSS Usage Card
+  const memAllocPct = sum.memory_allocation_percent || 0;
+  const memBadge = document.getElementById("vm-mem-ratio-badge");
+  memBadge.textContent =
+    memAllocPct > 100
+      ? `${memAllocPct}% Overcommit`
+      : `${memAllocPct}% of Host RAM`;
+  memBadge.style.color = memAllocPct > 90 ? "#fbbf24" : "#94a3b8";
+
+  document.getElementById("vm-mem-used-val").textContent =
+    `${formatBytes(sum.used_memory || 0, 2)} Used`;
+  document.getElementById("vm-mem-alloc-sub").textContent =
+    `/ ${formatBytes(sum.allocated_memory || 0, 1)} Allocated (Host: ${formatBytes(sum.host_total_memory || 0, 0)})`;
+
+  document.getElementById("bar-vm-mem-alloc").style.width =
+    `${Math.min(100, memAllocPct)}%`;
+  document.getElementById("bar-vm-mem-used").style.width =
+    `${Math.min(100, sum.memory_used_of_host_percent || 0)}%`;
+
+  document.getElementById("vm-mem-efficiency-text").textContent =
+    `Used of Allocated: ${(sum.memory_used_of_allocated_percent || 0).toFixed(1)}%`;
+  document.getElementById("vm-mem-host-share-text").textContent =
+    `Actual Host RAM Share: ${(sum.memory_used_of_host_percent || 0).toFixed(1)}%`;
+
+  // 3. Instance Summary Card
+  document.getElementById("vm-cnt-running").textContent = sum.running_count || 0;
+  document.getElementById("vm-cnt-stopped").textContent = sum.stopped_count || 0;
+  document.getElementById("vm-cnt-total").textContent = sum.total_count || 0;
+
+  const engines = [...new Set(items.map((i) => i.hypervisor))];
+  document.getElementById("vm-engine-badge").textContent =
+    engines.length > 0 ? engines.join(" · ") : "KVM / libvirt / QEMU";
+
+  const unallocMem = Math.max(0, (sum.host_total_memory || 0) - (sum.allocated_memory || 0));
+  document.getElementById("vm-headroom-text").textContent =
+    `Unallocated Host RAM Headroom: ${formatBytes(unallocMem, 1)}`;
+
+  // 4. Per-VM Table
+  const vmTbody = document.getElementById("vm-tbody");
+  if (items.length === 0) {
+    vmTbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="vm-empty-row">
+          No active or configured Virtual Machines detected on this host right now.
+          Click <strong>"Preview Sample VMs"</strong> above to preview how KVM / Proxmox / libvirt VMs are displayed.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  vmTbody.innerHTML = items
+    .map((vm) => {
+      const isRun = vm.status === "running";
+      const stateClass = isRun ? "vm-state-running" : "vm-state-stopped";
+      const stateLabel = isRun ? "● Running" : "○ Stopped";
+      const pidLabel = vm.pid ? `PID ${vm.pid}` : (vm.id && vm.id !== "-" ? `ID ${vm.id}` : " Inactive");
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight: 600; color: var(--text-main);">${vm.name}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: 'SF Mono', Menlo, monospace;">${pidLabel}</div>
+          </td>
+          <td><span class="kpi-badge">${vm.hypervisor}</span></td>
+          <td><span class="vm-state-badge ${stateClass}">${stateLabel}</span></td>
+          <td class="vm-metric-cell">
+            <div class="vm-cell-top">
+              <span><strong>${vm.vcpus} vCPUs</strong> Allocated</span>
+              <span class="${vm.cpu_vm_percent >= 75 ? "cpu-hot" : ""}">Load: ${vm.cpu_vm_percent.toFixed(1)}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill fill-cpu" style="width: ${Math.min(100, vm.cpu_vm_percent)}%"></div>
+            </div>
+          </td>
+          <td class="vm-metric-cell">
+            <div class="vm-cell-top">
+              <span><strong>${formatBytes(vm.used_memory, 2)}</strong> / ${formatBytes(vm.allocated_memory, 1)}</span>
+              <span>${vm.memory_vm_percent.toFixed(1)}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill fill-mem" style="width: ${Math.min(100, vm.memory_vm_percent)}%"></div>
+            </div>
+          </td>
+          <td class="num-col">${vm.cpu_host_percent.toFixed(1)}%</td>
+          <td class="num-col">${formatUptime(vm.uptime_seconds)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
 function renderSnapshot(snap, updateCharts = true) {
   if (!snap) return;
+  lastSnapshot = snap;
 
   // 1. Header & System Summary
   const sys = snap.system;
@@ -370,7 +610,10 @@ function renderSnapshot(snap, updateCharts = true) {
     )
     .join("");
 
-  // 6. Top Active Processes
+  // 6. Virtual Machines (VM) Allocation & Usage
+  renderVMSection(snap);
+
+  // 7. Top Active Processes
   const tbody = document.getElementById("proc-tbody");
   tbody.innerHTML = (snap.top_processes || [])
     .map(
@@ -440,7 +683,7 @@ function connectWebSocket() {
   };
 }
 
-// Controls: Sampling Interval & Pause
+// Controls: Sampling Interval, Pause & Demo VMs
 document.getElementById("interval-select").addEventListener("change", (e) => {
   currentInterval = parseFloat(e.target.value);
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -465,6 +708,21 @@ document.getElementById("pause-btn").addEventListener("click", () => {
     btnText.textContent = "Pause";
     statusDot.classList.remove("paused");
     statusText.textContent = "Live";
+  }
+});
+
+document.getElementById("demo-vm-btn").addEventListener("click", () => {
+  isDemoVMs = !isDemoVMs;
+  const btn = document.getElementById("demo-vm-btn");
+  if (isDemoVMs) {
+    btn.classList.add("active");
+    btn.textContent = "Exit Sample VMs";
+  } else {
+    btn.classList.remove("active");
+    btn.textContent = "Preview Sample VMs";
+  }
+  if (lastSnapshot) {
+    renderVMSection(lastSnapshot);
   }
 });
 

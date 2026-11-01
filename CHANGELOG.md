@@ -3,6 +3,18 @@
 All notable changes to **PulseMonitor** are documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-02
+
+### Added
+- **Virtual Machines (VM) Resource Allocation & Real-Time Usage Monitoring**:
+  - Added `VMCollector` engine in `app.py` supporting **KVM / QEMU** (`qemu-system-*` cmdline inspection for `-name`, `-smp` vCPUs, and `-m` allocated RAM), **libvirt (`virsh`)**, **Proxmox VE (`qm list`)**, **Canonical Multipass**, **VirtualBox (`VBoxHeadless`)**, **VMware**, **Parallels**, and **Apple Virtualization.framework**.
+  - Added 3 Host-to-VM Resource Allocation Overview cards tracking:
+    - **vCPU Provisioning vs. Host Logical Cores** (including overcommit percentage & live host CPU load consumed by VMs).
+    - **VM Memory Provisioning vs. Actual Physical RAM Usage (RSS)** (with dual-layer progress bar and host unallocated RAM headroom).
+    - **Hypervisor Instance Summary** (Running, Stopped, Total VMs, and active hypervisor engines).
+  - Added Per-VM Resource Allocation & Live Usage table with individual vCPU load bars, actual RSS vs. allocated RAM bars, host CPU share, and VM uptime.
+  - Added interactive **"Preview Sample VMs"** mode in the Web UI to preview Home Lab multi-VM telemetry on hosts without active VMs.
+
 ## [1.1.0] - 2026-11-02
 
 ### Added
