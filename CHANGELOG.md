@@ -3,6 +3,15 @@
 All notable changes to **PulseMonitor** are documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-11-02
+
+### Added
+- **Prominent Hostname Display & Multi-Node Tab Identification**:
+  - Added a dedicated glowing **Hostname badge** (`#header-hostname-badge`) in the top header and a **Host** pill in the system metadata bar.
+  - Dynamically prefixes the browser tab title with `[hostname] PulseMonitor` so multiple open server tabs (`pocser01`, `pocetac`, workstation) are immediately distinguishable.
+- **Comprehensive Documentation & Screenshot**:
+  - Updated `README.md` with dashboard preview screenshot (`docs/dashboard-preview.png`), API reference table, architecture layout, and complete multi-platform installation instructions.
+
 ## [1.2.1] - 2026-11-02
 
 ### Added

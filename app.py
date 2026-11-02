@@ -763,6 +763,131 @@ async def index() -> FileResponse:
     )
 
 
+@app.get("/install_chrome.sh", response_class=PlainTextResponse)
+async def get_install_chrome_script() -> str:
+    """One-line script to install & optimize Google Chrome for XRDP/XFCE4 on Ubuntu Server."""
+    return """#!/usr/bin/env bash
+set -e
+echo "========================================================"
+echo " 🌐 Installing Google Chrome (Stable) on $(hostname)..."
+echo "========================================================"
+
+# 1. Download official Google Chrome .deb package
+echo "📥 [1/4] Downloading official Google Chrome (amd64)..."
+cd /tmp
+curl -fL --progress-bar https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o google-chrome-stable_current_amd64.deb
+
+# 2. Install Chrome + CJK fonts (so Chinese/Asian webpages render cleanly without boxes)
+echo "📦 [2/4] Installing Google Chrome & CJK Fonts..."
+sudo apt-get update -qq
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+  ./google-chrome-stable_current_amd64.deb \\
+  fonts-liberation fonts-noto-cjk xdg-utils
+rm -f /tmp/google-chrome-stable_current_amd64.deb
+
+# 3. Optimize Chrome Launcher for XRDP Remote Desktop (avoid keyring popup & set default browser)
+echo "⚙️  [3/4] Optimizing Chrome for XRDP Remote Desktop..."
+mkdir -p "$HOME/Desktop" "$HOME/.local/share/applications" "$HOME/.config/xfce4"
+
+if [ -f /usr/share/applications/google-chrome.desktop ]; then
+  sed 's|/usr/bin/google-chrome-stable|/usr/bin/google-chrome-stable --password-store=basic|g' \\
+    /usr/share/applications/google-chrome.desktop > "$HOME/Desktop/google-chrome.desktop"
+  cp "$HOME/Desktop/google-chrome.desktop" "$HOME/.local/share/applications/google-chrome.desktop"
+  chmod +x "$HOME/Desktop/google-chrome.desktop" "$HOME/.local/share/applications/google-chrome.desktop"
+  gio set "$HOME/Desktop/google-chrome.desktop" metadata::trusted true 2>/dev/null || true
+fi
+
+# Set Google Chrome as default XFCE4 Web Browser
+echo "WebBrowser=google-chrome" > "$HOME/.config/xfce4/helpers.rc"
+xdg-settings set default-web-browser google-chrome.desktop 2>/dev/null || true
+
+echo "🚀 [4/4] Verifying installation..."
+google-chrome --version
+
+echo ""
+echo "========================================================"
+echo " ✅ Google Chrome is installed and ready on $(hostname)!"
+echo " 🖥️  You can now click 'Google Chrome' directly on your"
+echo "    Remote Desktop or Applications -> Internet menu!"
+echo "========================================================"
+"""
+
+
+@app.get("/enable_gui.sh", response_class=PlainTextResponse)
+async def get_enable_gui_script() -> str:
+    """One-line script to install & enable Remote Desktop (XRDP + XFCE4 GUI) on Ubuntu Server."""
+    pubkey = ""
+    pubkey_path = os.path.expanduser("~/.ssh/home_ai_lab_ed25519.pub")
+    if os.path.exists(pubkey_path):
+        try:
+            with open(pubkey_path, "r", encoding="utf-8") as f:
+                pubkey = f.read().strip()
+        except Exception:
+            pass
+
+    return f"""#!/usr/bin/env bash
+set -e
+echo "========================================================"
+echo " 🖥️  Enabling Remote Desktop GUI (XRDP + XFCE4) on $(hostname)"
+echo "========================================================"
+
+# 1. Authorize SSH key for passwordless maintenance
+if [ -n "{pubkey}" ]; then
+  chmod 755 "$HOME" 2>/dev/null || true
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  grep -qF "{pubkey}" "$HOME/.ssh/authorized_keys" 2>/dev/null || echo "{pubkey}" >> "$HOME/.ssh/authorized_keys"
+  chmod 600 "$HOME/.ssh/authorized_keys"
+fi
+
+# 2. Install XRDP & XFCE4 Desktop Environment
+echo "📦 [1/4] Installing XFCE4 Desktop & XRDP Server (port 3389)..."
+sudo apt-get update -qq
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+  xrdp xfce4 xfce4-goodies xfce4-terminal dbus-x11 xorgxrdp
+
+# 3. Configure XFCE4 session & fix Ubuntu 24.04 DBUS/XDG XRDP session variables
+echo "⚙️  [2/4] Configuring XRDP session for user $USER..."
+echo "xfce4-session" > "$HOME/.xsession"
+chmod +x "$HOME/.xsession"
+
+cat << 'EOF_XRC' > "$HOME/.xsessionrc"
+export XDG_SESSION_DESKTOP=xfce
+export XDG_DATA_DIRS=/usr/share/xfce4:/usr/local/share:/usr/share:/var/lib/snapd/desktop
+export XDG_CONFIG_DIRS=/etc/xdg/xdg-xfce:/etc/xdg
+EOF_XRC
+
+sudo adduser xrdp ssl-cert >/dev/null 2>&1 || true
+
+# Ensure /etc/xrdp/startwm.sh clears conflicting systemd user session vars
+if ! grep -q "unset DBUS_SESSION_BUS_ADDRESS" /etc/xrdp/startwm.sh 2>/dev/null; then
+  sudo sed -i '/^test -x \\/etc\\/X11\\/Xsession/i unset DBUS_SESSION_BUS_ADDRESS\\nunset XDG_RUNTIME_DIR' /etc/xrdp/startwm.sh || true
+fi
+
+# 4. Enable & Start XRDP Service + Allow Firewall Port 3389
+echo "🚀 [3/4] Starting XRDP service on port 3389..."
+sudo systemctl enable xrdp >/dev/null 2>&1 || true
+sudo systemctl restart xrdp
+
+if command -v ufw >/dev/null 2>&1 && sudo ufw status | grep -q "Status: active"; then
+  sudo ufw allow 3389/tcp >/dev/null 2>&1 || true
+fi
+
+# 5. Also update PulseMonitor to latest v{APP_VERSION}
+echo "🔄 [4/4] Updating PulseMonitor to v{APP_VERSION}..."
+curl -fsSL http://100.120.172.121:8788/deploy.sh | bash
+
+TS_IP=$(tailscale ip -4 2>/dev/null || hostname -I | awk '{{print $1}}')
+LAN_IP=$(hostname -I | awk '{{print $1}}')
+echo ""
+echo "========================================================"
+echo " ✅ Remote Desktop GUI (XRDP) is READY on $(hostname)!"
+echo " 🖥️  RDP Address (Tailscale): ${{TS_IP}}:3389"
+echo " 🖥️  RDP Address (LAN):       ${{LAN_IP}}:3389"
+echo " 👤 Username:                 $USER"
+echo "========================================================"
+"""
+
+
 @app.get("/deploy.sh", response_class=PlainTextResponse)
 async def get_deploy_script() -> str:
     """One-line remote deployment script served over LAN / Tailscale."""
@@ -800,9 +925,15 @@ tar -xzf pulsemonitor.tar.gz --strip-components=1
 if sudo -n true 2>/dev/null; then
   sudo bash linux/install_ubuntu.sh
 else
-  echo "📦 Setting up PulseMonitor in $WORK_DIR (or run: sudo bash $WORK_DIR/linux/install_ubuntu.sh)..."
+  echo "📦 Setting up PulseMonitor v{APP_VERSION} in $WORK_DIR..."
   if ! python3 -m venv .venv 2>/dev/null; then
-    sudo apt-get update && sudo apt-get install -y python3-venv python3-pip
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update && sudo apt-get install -y python3-venv python3-pip
+    elif command -v dnf >/dev/null 2>&1; then
+      sudo dnf install -y python3-pip
+    elif command -v yum >/dev/null 2>&1; then
+      sudo yum install -y python3-pip
+    fi
     python3 -m venv .venv
   fi
   .venv/bin/pip install --upgrade pip -q
@@ -810,7 +941,11 @@ else
   pkill -f "uvicorn app:app" 2>/dev/null || true
   nohup .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8788 > "$WORK_DIR/pulsemonitor.log" 2>&1 &
   sleep 1
-  echo "✅ PulseMonitor v{APP_VERSION} is LIVE on http://$(hostname -I | awk '{{print $1}}'):8788 (and http://100.109.47.124:8788)"
+  TS_IP=$(tailscale ip -4 2>/dev/null || hostname -I | awk '{{print $1}}')
+  echo "========================================================"
+  echo " ✅ PulseMonitor v{APP_VERSION} is LIVE on $(hostname)!"
+  echo " 🌐 Tailscale / LAN URL: http://${{TS_IP}}:8788"
+  echo "========================================================"
 fi
 """
 

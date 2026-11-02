@@ -467,8 +467,15 @@ function renderSnapshot(snap, updateCharts = true) {
   if (sys.version) {
     document.getElementById("app-version-badge").textContent = `v${sys.version}`;
   }
+  if (sys.hostname) {
+    const hBadge = document.getElementById("hostname-val");
+    const hMeta = document.getElementById("meta-hostname-val");
+    if (hBadge) hBadge.textContent = sys.hostname;
+    if (hMeta) hMeta.textContent = sys.hostname;
+    document.title = `[${sys.hostname}] PulseMonitor · System & Home Lab Dashboard`;
+  }
   document.getElementById("sys-summary-text").textContent =
-    `${sys.hostname} · ${sys.os} · ${sys.cpu_brand}`;
+    `${sys.os} · ${sys.cpu_brand}`;
   document.getElementById("uptime-val").textContent = formatUptime(sys.uptime_seconds);
   document.getElementById("load-val").textContent = snap.cpu.load_avg.join(" / ");
 

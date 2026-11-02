@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PulseMonitor · Real-Time System & Home Lab Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=1.2.1" />
+  <link rel="stylesheet" href="/static/style.css?v=1.2.2" />
   <!-- Chart.js for smooth real-time time-series visualizations -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
@@ -22,7 +22,16 @@
         <div>
           <div class="title-row">
             <h1>PulseMonitor</h1>
-            <span class="badge-subtle" id="app-version-badge">v1.2.0</span>
+            <span class="host-badge" id="header-hostname-badge" title="Current Monitored Hostname">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+              <span id="hostname-val">detecting-host...</span>
+            </span>
+            <span class="badge-subtle" id="app-version-badge">v1.2.2</span>
             <span class="status-pill" id="ws-status-text">Connecting...</span>
           </div>
           <p class="subtitle" id="sys-summary-text">Loading host hardware specifications...</p>
@@ -31,6 +40,10 @@
 
       <div class="header-controls">
         <div class="sys-meta-pills">
+          <div class="meta-chip host-meta-chip" title="Current Server / Workstation Hostname">
+            <span class="meta-label">Host</span>
+            <span class="meta-val host-meta-val" id="meta-hostname-val">--</span>
+          </div>
           <div class="meta-chip" title="System Uptime">
             <span class="meta-label">Uptime</span>
             <span class="meta-val" id="uptime-val">--</span>
@@ -468,6 +481,6 @@
     </footer>
   </div>
 
-  <script src="/static/app.js?v=1.2.1"></script>
+  <script src="/static/app.js?v=1.2.2"></script>
 </body>
 </html>
